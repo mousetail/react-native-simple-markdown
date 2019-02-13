@@ -1,38 +1,69 @@
-import React, {Component} from 'react';
-import {Text, View} from 'react-native';
-import {SlateEditor} from 'slate-editor';
-import {Value} from 'slate';
+import React, {Component, Fragment} from 'react';
+import {Button, WebView, Keyboard, Text, View} from 'react-native';
 
 export class RichTextEditor extends React.Component {
+    constructor(props) {
+        super(props);
+        this.webView = React.createRef();
+        this.state = {
+            value: "",
+        };
+    }
+
+
+
     render() {
+        let jsCode = `
+            document.querySelector("#test").addEventListener('input', function() {
+                window.postMessage("test");
+                try {
+                    var selection = document.getSelection();
+                    var range = selection.getRangeAt(0);
+                    
+                    window.postMessage("range: "+range.endOffset);
+                }
+                catch (err) {
+                    window.postMessage("error"+err);
+                }
+            });
+            document.querySelector('*').style.backgroundColor = 'blue';
+            document.addEventListener('message', function(e) {
+                document.getElementById('test').innerHTML = "<b>" + document.getElementById('test').innerHTML + "</b>";
+            });
+        `;
+
         return (
-            <View
-                style={{
-                    width: 100,
-                    height: 100,
-                    backgroundColor: '#F00'
-                }}
-            >
-                <Text>Within Editor Component</Text>
-                {/*<Editor*/}
-                    {/*id={'editor'}*/}
-                    {/*autoCorrect={false}*/}
-                    {/*autoFocus={true}*/}
-                    {/*className={'test'}*/}
-                    {/*commands={{}}*/}
-                    {/*onChange={console.log.bind(this)}*/}
-                    {/*placeholder={'sdfjhdfshsdf'}*/}
-                    {/*plugins={[]}*/}
-                    {/*queries={{}}*/}
-                    {/*readOnly={false}*/}
-                    {/*role={'textbox'}*/}
-                    {/*// schema={{}}*/}
-                    {/*spellCheck={true}*/}
-                    {/*// value={'fjklfasdjklfsdjklsdf'}*/}
-                    {/*style={{width: 500, height: 1000}}*/}
-                    {/*tabIndex={1}*/}
-                {/*/>*/}
-            </View>
+            <Fragment>
+                <Button
+                    title={'Make bold'}
+                    onPress={() => this.webView.current.postMessage('bold')}
+                />
+                <WebView
+                    ref={this.webView}
+                    onMessage={ev => {
+                        console.log(ev.nativeEvent.data);
+                    }}
+                    source={{
+                        html: '' +
+                            '<div ' +
+                            'id="test" contenteditable="true" ' +
+                            'oninput="sendSelection()"' +
+                            '>' +
+                            'Test text' +
+                            '</div>'
+                    }}
+                    javaScriptEnabled={true}
+                    style={{
+                        backgroundColor: '#FFFFFF'
+                    }}
+                    onError={ev => console.log(ev)}
+                    injectedJavaScript={
+                        jsCode
+                    }
+                >
+                    <Text>Within Editor Component</Text>
+                </WebView>
+            </Fragment>
         );
     }
 }
