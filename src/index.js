@@ -1,7 +1,7 @@
 /* @flow */
 
 import React, { Component } from 'react'
-import { View } from 'react-native'
+import { View, Text } from 'react-native'
 import PropTypes from 'prop-types'
 import SimpleMarkdown from 'simple-markdown'
 import _ from 'lodash'
@@ -60,6 +60,7 @@ class Markdown extends Component<Props> {
           this.props.rules,
         ),
       )
+      console.warn(rules);
       const child = Array.isArray(this.props.children)
         ? this.props.children.join('')
         : this.props.children
@@ -68,9 +69,11 @@ class Markdown extends Component<Props> {
       const tree = SimpleMarkdown.parserFor(rules)(blockSource, {
         inline: false,
       })
-      return SimpleMarkdown.reactFor(SimpleMarkdown.ruleOutput(rules, 'react'))(
+      let l = SimpleMarkdown.reactFor(SimpleMarkdown.ruleOutput(rules, 'react'))(
         tree,
-      )
+      );
+      console.log(l);
+      return l;
     }
     catch (errors) {
       this.props.errorHandler
