@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div id="editor-container" contenteditable="true" style="width: 100%; height: 100%">
+    Test text
+</div>
+<script>
+    /*
+     * Communication:
+     * message type: json
+     * - from native to this
+     *   - keys
+     *     - command
+     *       - bold
+     *       - italic
+     *       - underline
+     *
+     */
+    document.querySelector("#editor-container").addEventListener('input', function () {
+        var selection = document.getSelection();
+        var range = selection.getRangeAt(0);
+
+        window.postMessage("range: " + range.endOffset);
+    });
+    //For debugging purposes
+    document.querySelector('*').style.backgroundColor = 'blue';
+
+    document.addEventListener('message', function (e) {
+        try {
+            let data = JSON.parse(e.data);
+            switch (data.command) {
+                case 'bold':
+                    makeBold(data);
+                    break;
+                case 'italic':
+                    break;
+                default:
+            }
+        } catch (err) {
+            window.postMessage(""+err);
+        }
+    });
+
+    function makeBold(value) {
+        insertTags({fontWeight: 'bold'});
+    }
+
+    // function makeItalic(value) {
+    //     applyStyle({fontWeight: 'bold'});
+    // }
+    //
+    // function makeUnderline(value) {
+    //     applyStyle({fontWeight: 'bold'});
+    // }
+
+    function applyStyles(node, styles) {
+        Object.keys(styles).forEach((key) => {
+            node.style[key] = styles[key];
+        });
+    }
+
+    /**
+     * Inserts tags around 1 html node
+     * @param styles
+     * @param range
+     * @pre range start and ends in the same container &&
+     *      range starts in a text node
+     */
+    function insertOneTag(styles, range) {
+        this.window.postMessage("range: "+range.startContainer+", "+range);
+        let startSelectionNode = range.startContainer;
+        let endSelectionNode = range.endContainer;
+        let nextNode = startSelectionNode.nextSibling;
+        let parentNode = startSelectionNode.parentNode;
+
+        if (!(startSelectionNode instanceof Text)) {
+            throw new Error(startSelectionNode);
+        } else if (startSelectionNode !== endSelectionNode) {
+            throw new Error("not the same container");
+        }
+
+        let prefix = startSelectionNode.textContent.substring(0, range.startOffset);
+        let infix = startSelectionNode.textContent.substring(range.startOffset, range.endOffset);
+        let suffix = startSelectionNode.textContent.substring(range.endOffset);
+
+        // Remove the node the cursor is in
+        // Paste back everything from that node before the cursor
+        startSelectionNode.parentNode.removeChild(startSelectionNode);
+        parentNode.insertBefore(document.createTextNode(prefix), nextNode);
+
+        // Create style around the cursor
+        let span = document.createElement("span");
+        applyStyles(span, styles);
+
+        // Set the infix in the new span node
+        span.appendChild(document.createTextNode(infix));
+        // Insert the new span node in between the prefix and suffix
+        parentNode.insertBefore(span, nextNode);
+
+        parentNode.insertBefore(document.createTextNode(suffix), nextNode);
+
+        return {
+            startContainer: span.firstChild,
+            endContainer: span.firstChild,
+            startOffset: 0,
+            endOffset: infix.length,
+        };
+    }
+
+    /**
+     *
+     * @param styles to apply to a selection.
+     */
+    function insertTags(styles) {
+        let range;
+
+        // If focus is not in the div do nothing
+        try {
+            range = document.getSelection().getRangeAt(0);
+        } catch {
+            return;
+        }
+
+        if (range.startContainer === range.endContainer) {
+            let newRange = insertOneTag(styles, range);
+            setSelection(newRange, newRange);
+            return;
+        }
+
+        let nodes = getNodes(range.startContainer, range.endContainer);
+
+        let firstRange;
+        let lastRange;
+
+        nodes.forEach(node => {
+            if (node instanceof Text) {
+                let newRange = {
+                    startContainer: node,
+                    endContainer: node,
+                };
+
+                if (node === range.startContainer) {
+                    newRange = {
+                        ...newRange,
+                        startOffset: range.startOffset,
+                        endOffset: node.textContent.length,
+                    };
+                    this.window.postMessage('startContainer');
+                } else if (node === range.endContainer) {
+                    newRange = {
+                        ...newRange,
+                        startOffset: 0,
+                        endOffset: range.endOffset,
+                    };
+                    this.window.postMessage('endContainer');
+                } else {
+                    newRange = {
+                        ...newRange,
+                        startOffset: 0,
+                        endOffset: node.textContent.length,
+                    };
+                    this.window.postMessage('FullNode');
+                }
+
+                lastRange = insertOneTag(styles, newRange);
+
+                if (!firstRange) {
+                    firstRange = lastRange;
+                }
+            } else {
+                applyStyles(node, styles);
+                this.window.postMessage('Only apply style');
+            }
+        });
+
+        setSelection(firstRange, lastRange);
+    }
+
+    function setSelection(firstRange, lastRange) {
+        // If there is no selection dont edit the selection
+        if (!firstRange) {
+            return;
+        }
+
+        let selection = window.getSelection();
+        let newRange = document.createRange();
+        newRange.setStart(firstRange.startContainer, firstRange.startOffset);
+        newRange.setEnd(lastRange.endContainer, lastRange.endOffset);
+
+        selection.empty();
+        selection.addRange(newRange);
+    }
+
+    /**
+     *
+     * @param startNode
+     * @param endNode
+     * @return [Node]
+     */
+    function getNodes(startNode, endNode) {
+        let nodes = [startNode];
+        let currentNode = startNode;
+
+        while (currentNode !== endNode) {
+            this.window.postMessage("getNode: "+currentNode);
+            currentNode = getNextSibling(currentNode);
+
+            if (!(currentNode instanceof Text) && isIndirectParent(endNode, currentNode)) {
+                currentNode = currentNode.firstChild;
+            }
+
+            nodes.push(currentNode);
+        }
+
+        return nodes;
+    }
+
+    /**
+     *
+     * @param node
+     * @param parent
+     * @return boolean
+     */
+    function isIndirectParent(node, parent) {
+        while (node.tagName !== 'body') {
+            if (node === parent) {
+                return true;
+            } else {
+                node =  node.parentNode;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     *
+     * @param node
+     * @returns {Node | null}
+     */
+    function getNextSibling(node) {
+        this.window.postMessage(""+node);
+
+        while (!node.nextSibling && node) {
+            node = node.parentNode;
+        }
+
+        return node.nextSibling;
+    }
+</script>
+</body>
+</html>
