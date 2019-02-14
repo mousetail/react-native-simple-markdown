@@ -20,14 +20,8 @@
      *       - underline
      *
      */
-    document.querySelector("#editor-container").addEventListener('input', function () {
-        var selection = document.getSelection();
-        var range = selection.getRangeAt(0);
-
-        window.postMessage("range: " + range.endOffset);
-    });
     //For debugging purposes
-    document.querySelector('*').style.backgroundColor = 'blue';
+    document.querySelector('*').style.backgroundColor = 'white';
 
     document.addEventListener('message', function (e) {
         try {
@@ -37,6 +31,10 @@
                     makeBold(data);
                     break;
                 case 'italic':
+                    makeItalic(data);
+                    break;
+                case 'underline':
+                    makeUnderline(data);
                     break;
                 default:
             }
@@ -49,13 +47,13 @@
         insertTags({fontWeight: 'bold'});
     }
 
-    // function makeItalic(value) {
-    //     applyStyle({fontWeight: 'bold'});
-    // }
-    //
-    // function makeUnderline(value) {
-    //     applyStyle({fontWeight: 'bold'});
-    // }
+    function makeItalic(value) {
+        insertTags({fontStyle: 'italic'});
+    }
+
+    function makeUnderline(value) {
+        insertTags({textDecoration: 'underline'});
+    }
 
     function applyStyles(node, styles) {
         Object.keys(styles).forEach((key) => {
@@ -71,7 +69,6 @@
      *      range starts in a text node
      */
     function insertOneTag(styles, range) {
-        this.window.postMessage("range: "+range.startContainer+", "+range);
         let startSelectionNode = range.startContainer;
         let endSelectionNode = range.endContainer;
         let nextNode = startSelectionNode.nextSibling;
@@ -86,6 +83,10 @@
         let prefix = startSelectionNode.textContent.substring(0, range.startOffset);
         let infix = startSelectionNode.textContent.substring(range.startOffset, range.endOffset);
         let suffix = startSelectionNode.textContent.substring(range.endOffset);
+
+        if (infix === "") {
+            infix = "\u200B";
+        }
 
         // Remove the node the cursor is in
         // Paste back everything from that node before the cursor
@@ -102,6 +103,9 @@
         parentNode.insertBefore(span, nextNode);
 
         parentNode.insertBefore(document.createTextNode(suffix), nextNode);
+
+        this.window.postMessage("span.firstChild: "+span.firstChild+" "+span.style.fontWeight+" "
+            +span);
 
         return {
             startContainer: span.firstChild,
@@ -149,21 +153,18 @@
                         startOffset: range.startOffset,
                         endOffset: node.textContent.length,
                     };
-                    this.window.postMessage('startContainer');
                 } else if (node === range.endContainer) {
                     newRange = {
                         ...newRange,
                         startOffset: 0,
                         endOffset: range.endOffset,
                     };
-                    this.window.postMessage('endContainer');
                 } else {
                     newRange = {
                         ...newRange,
                         startOffset: 0,
                         endOffset: node.textContent.length,
                     };
-                    this.window.postMessage('FullNode');
                 }
 
                 lastRange = insertOneTag(styles, newRange);
@@ -173,7 +174,6 @@
                 }
             } else {
                 applyStyles(node, styles);
-                this.window.postMessage('Only apply style');
             }
         });
 
@@ -191,8 +191,17 @@
         newRange.setStart(firstRange.startContainer, firstRange.startOffset);
         newRange.setEnd(lastRange.endContainer, lastRange.endOffset);
 
+
         selection.empty();
         selection.addRange(newRange);
+
+        this.window.postMessage("startContainer: "+newRange.startContainer+" "+newRange.startContainer.parentNode+" "+ newRange.startOffset);
+        this.window.postMessage("endContainer: "+newRange.endContainer+" "+newRange.endContainer.parentNode+" "+ newRange.endOffset);
+
+        newRange = window.getSelection().getRangeAt(0);
+
+        this.window.postMessage("startContainer: "+newRange.startContainer+" "+newRange.startContainer.parentNode+" "+ newRange.startOffset);
+        this.window.postMessage("endContainer: "+newRange.endContainer+" "+newRange.endContainer.parentNode+" "+ newRange.endOffset);
     }
 
     /**
@@ -206,7 +215,6 @@
         let currentNode = startNode;
 
         while (currentNode !== endNode) {
-            this.window.postMessage("getNode: "+currentNode);
             currentNode = getNextSibling(currentNode);
 
             if (!(currentNode instanceof Text) && isIndirectParent(endNode, currentNode)) {
@@ -243,8 +251,6 @@
      * @returns {Node | null}
      */
     function getNextSibling(node) {
-        this.window.postMessage(""+node);
-
         while (!node.nextSibling && node) {
             node = node.parentNode;
         }

@@ -45,20 +45,36 @@ export class RichTextEditor extends React.Component {
                     source={{html: this.state.html}}
                     javaScriptEnabled={true}
                     style={{
-                        backgroundColor: '#FFFFFF'
+                        backgroundColor: '#F00'
                     }}
                     onError={ev => console.log(ev)}
                     domStorageEnabled={true}
                 >
                     <Text>Within Editor Component</Text>
                 </WebView>}
-                <Button
-                    title={'Make bold'}
+                <View
                     style={{
-
+                        flexDirection: 'row',
+                        justifyContent: 'space-evenly',
                     }}
-                    onPress={() => this.webView.current.postMessage(JSON.stringify({command: 'bold'}))}
-                />
+                >
+                    <Button
+                        title={'Make bold'}
+                        style={{}}
+                        onPress={() => this.webView.current.postMessage(JSON.stringify({command: 'bold'}))}
+                    />
+                    <Button
+                        title={'Make italic'}
+                        style={{}}
+                        onPress={() => this.webView.current.postMessage(JSON.stringify({command: 'italic'}))}
+                    />
+                    <Button
+                        title={'Make underline'}
+                        style={{}}
+                        onPress={() => this.webView.current.postMessage(JSON.stringify({command: 'underline'}))}
+                    />
+                </View>
+
             </Fragment>
         );
     }
